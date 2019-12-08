@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <RootNamespace>MPP_lab5.DIContainer</RootNamespace>
+  </PropertyGroup>
+
+</Project>
