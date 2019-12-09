@@ -1,15 +1,16 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace DIContainer
 {
     public class DependenciesConfiguration
     {
-        public Dictionary<Type, DependenciesImpls> Dependencies { get; }
-
+        public ConcurrentDictionary<Type, DependenciesImpls> Dependencies { get; }
+        
         public DependenciesConfiguration()
         {
-            Dependencies = new Dictionary<Type, DependenciesImpls>();
+            Dependencies = new ConcurrentDictionary<Type, DependenciesImpls>();
         }
 
         public bool Register<InterfaceType, ImplType>(bool isSingleton)
@@ -35,7 +36,7 @@ namespace DIContainer
                 if (!Dependencies.ContainsKey(typeInterface))
                 {
                     var dependencies = new DependenciesImpls(isSingleton, typeImpl);
-                    Dependencies.Add(typeInterface, dependencies);
+                    Dependencies.TryAdd(typeInterface, dependencies);
                     return true;
                 }
                 else
