@@ -9,11 +9,15 @@ namespace DIContainer
 
         public Type ImplType;
 
-        public DependencyDetails(bool isSingleton, Type implType)
+        public bool IsGeneric { get; }
+
+
+        public DependencyDetails(bool isSingleton, Type implType, bool isGeneric)
         {
             IsSingleton = isSingleton;
             Instance = null;
             ImplType = implType;
+            IsGeneric = isGeneric;
         }
     }
 }

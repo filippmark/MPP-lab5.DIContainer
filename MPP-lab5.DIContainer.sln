@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29519.87
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DIContainerUnitTests", "DIContainerUnitTests\DIContainerUnitTests.csproj", "{B7034169-3BA9-41A8-97E9-12592CA19A5F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DIContainerUnitTests", "DIContainerUnitTests\DIContainerUnitTests.csproj", "{B7034169-3BA9-41A8-97E9-12592CA19A5F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DIContainer", "DIContainer\DIContainer.csproj", "{79D26CE4-3EBB-4B84-9D1B-4F6E55BC85DF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DIContainer", "DIContainer\DIContainer.csproj", "{79D26CE4-3EBB-4B84-9D1B-4F6E55BC85DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UseExample", "UseExample\UseExample.csproj", "{486BE0D2-2CB9-42FD-952A-DDAA27D6285E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{79D26CE4-3EBB-4B84-9D1B-4F6E55BC85DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{79D26CE4-3EBB-4B84-9D1B-4F6E55BC85DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{79D26CE4-3EBB-4B84-9D1B-4F6E55BC85DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{486BE0D2-2CB9-42FD-952A-DDAA27D6285E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{486BE0D2-2CB9-42FD-952A-DDAA27D6285E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{486BE0D2-2CB9-42FD-952A-DDAA27D6285E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{486BE0D2-2CB9-42FD-952A-DDAA27D6285E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

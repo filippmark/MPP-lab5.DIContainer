@@ -20,6 +20,9 @@ namespace DIContainer
 
         private object CreateInstance(Type type)
         {
+            if (type.IsGenericType)
+                type = type.GetGenericTypeDefinition();
+
             if (_configuration.Dependencies.TryGetValue(type, out DependenciesImpls details))
             {
                 var dependency = details.ImplTypes[details.ImplTypes.Count - 1];
@@ -31,42 +34,93 @@ namespace DIContainer
                     }
                     else
                     {
-                        dependency.Instance = GenerateDependecyByConstructor(type);
-                        return dependency.Instance;
+                        if (type.IsGenericType)
+                        {
+                            dependency.Instance = GenerateGenericDependency(dependency, type.GetGenericArguments()[0]);
+                            return dependency.Instance;
+                        }
+                        else
+                        {
+                            dependency.Instance = GenerateDependencyByConstructor(dependency.ImplType);
+                            return dependency.Instance;
+                        }
                     }
                 }
-                return GenerateDependecyByConstructor(type);
+                if (type.IsGenericType)
+                {
+                    return GenerateGenericDependency(dependency, type.GetGenericArguments()[0]);
+                }
+                else
+                {
+                    return GenerateDependencyByConstructor(dependency.ImplType);
+                }
             }
             return null;
         }
 
-        private object GenerateDependecyByConstructor(Type type)
+        private object GenerateGenericDependency(DependencyDetails genDeps, Type nestedType)
         {
-            ConstructorInfo[] constructorInfos = type.GetConstructors();
-            Console.WriteLine(constructorInfos.Length);
-            if (constructorInfos.Length == 0)
+            var interfaces = nestedType.GetInterfaces();
+            if ((interfaces.Length != 0) &&
+                    (((!nestedType.IsGenericType)) && (_configuration.Dependencies.TryGetValue(interfaces[0], out DependenciesImpls nestedDep))))
             {
-                return null;
+                Type implType = genDeps.ImplType;
+                return GenerateDependencyByConstructor(implType);
             }
-            else
+            return null;
+        }
+
+        private object GenerateDependencyByConstructor(Type type)
+        {
+            if (type.IsGenericType)
+                type = type.MakeGenericType(GetArgForGenericType(type));
+
+            ConstructorInfo[] constructorInfos = type.GetConstructors();
+            ConstructorInfo constructor = constructorInfos[0];
+            ParameterInfo[] parameters = constructor.GetParameters();
+            List<object> values = new List<object>();
+            if (parameters.Length > 0)
             {
-                ConstructorInfo constructor = constructorInfos[0];
-                ParameterInfo[] parameters = constructor.GetParameters();
-                List<object> values = new List<object>();
-                if (parameters.Length > 0)
+                foreach (var param in parameters)
                 {
-                    foreach (var param in parameters)
+                    object parameter = null;
+                    if (type.IsGenericType)
                     {
-                        var parameter = CreateInstance(param.ParameterType);
+                        Type typeInterface = param.ParameterType.GetInterfaces()[0];
+                        parameter = CreateInstance(typeInterface);
                         if (parameter == null)
                         {
                             return null;
                         }
-                        values.Add(parameter);
                     }
+                    else
+                    {
+                        parameter = CreateInstance(param.ParameterType);
+                        if (parameter == null)
+                        {
+                            return null;
+                        }
+                    }
+                    values.Add(parameter);
                 }
-                return constructor.Invoke(values.ToArray());
             }
+            return constructor.Invoke(values.ToArray());
+
         }
+
+        private Type[] GetArgForGenericType(Type genericType)
+        {
+            List<Type> types = new List<Type>();
+            var genTypes = genericType.GetGenericArguments();
+            foreach (var type in genTypes)
+            {
+                Type interfaceType = type.GetInterfaces()[0];
+                _configuration.Dependencies.TryGetValue(interfaceType, out DependenciesImpls impls);
+                var dependency = impls.ImplTypes[impls.ImplTypes.Count - 1];
+                types.Add(dependency.ImplType);
+            }
+            return types.ToArray();
+        }
+
     }
 }

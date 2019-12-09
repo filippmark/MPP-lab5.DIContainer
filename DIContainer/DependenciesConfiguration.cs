@@ -7,13 +7,31 @@ namespace DIContainer
     {
         public Dictionary<Type, DependenciesImpls> Dependencies { get; }
 
+        public DependenciesConfiguration()
+        {
+            Dependencies = new Dictionary<Type, DependenciesImpls>();
+        }
+
         public bool Register<InterfaceType, ImplType>(bool isSingleton)
         {
-            Type typeInterface = typeof(InterfaceType);
-            Type typeImpl = typeof(ImplType);
+            return TryToAddToConfig(typeof(InterfaceType), typeof(ImplType), isSingleton);
 
-            if (((typeInterface.IsInterface) && (typeInterface.IsAssignableFrom(typeImpl))) || (typeInterface.IsAssignableFrom(typeImpl)))
+        }
+
+        public bool Register(Type interfaceType, Type implType, bool isSingleton)
+        {
+            return TryToAddToConfig(interfaceType, implType, isSingleton);
+        }
+
+
+        private bool TryToAddToConfig(Type typeInterface, Type typeImpl, bool isSingleton)
+        {
+            if ((!typeImpl.IsInterface && !typeImpl.IsAbstract))
+            //    && ((typeInterface.IsInterface && typeInterface.IsAssignableFrom(typeImpl)) || typeInterface.IsAssignableFrom(typeImpl)))
             {
+                if (typeInterface.IsGenericType)
+                    typeInterface = typeInterface.GetGenericTypeDefinition();
+
                 if (!Dependencies.ContainsKey(typeInterface))
                 {
                     var dependencies = new DependenciesImpls(isSingleton, typeImpl);
