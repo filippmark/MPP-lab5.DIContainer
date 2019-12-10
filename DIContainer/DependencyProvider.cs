@@ -34,26 +34,11 @@ namespace DIContainer
                     }
                     else
                     {
-                        if (type.IsGenericType)
-                        {
-                            dependency.Instance = GenerateGenericDependency(dependency, type.GetGenericArguments()[0]);
-                            return dependency.Instance;
-                        }
-                        else
-                        {
-                            dependency.Instance = GenerateDependencyByConstructor(dependency.ImplType);
-                            return dependency.Instance;
-                        }
+                        dependency.Instance = GenerateDependencyByConstructor(dependency.ImplType);
+                        return dependency.Instance;
                     }
                 }
-                if (type.IsGenericType)
-                {
-                    return GenerateGenericDependency(dependency, type.GetGenericArguments()[0]);
-                }
-                else
-                {
                     return GenerateDependencyByConstructor(dependency.ImplType);
-                }
             }
             return null;
         }
@@ -73,8 +58,14 @@ namespace DIContainer
         private object GenerateDependencyByConstructor(Type type)
         {
             if (type.IsGenericType)
-                type = type.MakeGenericType(GetArgForGenericType(type));
-
+            {
+                var args = GetArgForGenericType(type);
+                if(args == null)
+                {
+                    return null;
+                }
+                type = type.MakeGenericType(args);
+            }
             ConstructorInfo[] constructorInfos = type.GetConstructors();
             ConstructorInfo constructor = constructorInfos[0];
             ParameterInfo[] parameters = constructor.GetParameters();
@@ -114,10 +105,17 @@ namespace DIContainer
             var genTypes = genericType.GetGenericArguments();
             foreach (var type in genTypes)
             {
-                Type interfaceType = type.GetInterfaces()[0];
-                _configuration.Dependencies.TryGetValue(interfaceType, out DependenciesImpls impls);
-                var dependency = impls.ImplTypes[impls.ImplTypes.Count - 1];
-                types.Add(dependency.ImplType);
+                var interfaces = type.GetInterfaces();
+                if ((interfaces.Length != 0) &&
+                    (((!type.IsGenericType)) && (_configuration.Dependencies.TryGetValue(interfaces[0], out DependenciesImpls impls))))
+                {
+                    var dependency = impls.ImplTypes[impls.ImplTypes.Count - 1];
+                    types.Add(dependency.ImplType);
+                }
+                else 
+                {
+                    return null;
+                }
             }
             return types.ToArray();
         }
