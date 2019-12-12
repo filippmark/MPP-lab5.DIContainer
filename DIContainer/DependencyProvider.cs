@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -7,10 +8,14 @@ namespace DIContainer
     public class DependencyProvider
     {
         private DependenciesConfiguration _configuration;
+        private object _locker;
+        private List<Type> _typesInGeneration;
 
         public DependencyProvider(DependenciesConfiguration configuration)
         {
             _configuration = configuration;
+            _locker = new object();
+            _typesInGeneration = new List<Type>();
         }
 
         public object Resolve<T>()
@@ -20,14 +25,86 @@ namespace DIContainer
 
         private object CreateInstance(Type type)
         {
-            if (type.IsGenericType)
-                type = type.GetGenericTypeDefinition();
-
-            if (_configuration.Dependencies.TryGetValue(type, out DependenciesImpls details))
+            object result = null;
+            if (!_typesInGeneration.Contains(type))
             {
-                var dependency = details.ImplTypes[details.ImplTypes.Count - 1];
-                if (dependency.IsSingleton)
+                _typesInGeneration.Add(type);
+                if (type.IsGenericType && (type.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
                 {
+                    result = CreateIEnumerable(type);
+                    _typesInGeneration.Remove(type);
+                }
+                else
+                {
+                    if (type.IsGenericType && (type.GenericTypeArguments.Length > 0))
+                    {
+                        Type nestedType = type.GenericTypeArguments[0];
+                        DependenciesImpls impls = null;
+                        DependenciesImpls implsOfNestedType = null;
+                        var typeOpenGeneric = type.GetGenericTypeDefinition();
+                        DependencyDetails generic = null;
+                        DependencyDetails nested = null;
+                        if ((_configuration.Dependencies.TryGetValue(type, out impls) || (_configuration.Dependencies.TryGetValue(type.GetGenericTypeDefinition(), out impls)))
+                            && _configuration.Dependencies.TryGetValue(nestedType, out implsOfNestedType))
+                        {
+                            generic = impls.ImplTypes[impls.ImplTypes.Count - 1];
+                            nested = implsOfNestedType.ImplTypes[implsOfNestedType.ImplTypes.Count - 1];
+                            result = GenerateGenericDependency(generic, nestedType);
+                            _typesInGeneration.Remove(type);
+                        }
+                    }
+                    else
+                    {
+                        if (_configuration.Dependencies.TryGetValue(type, out DependenciesImpls details))
+                        {
+                            var dependency = details.ImplTypes[details.ImplTypes.Count - 1];
+                            result = GenerateDependency(dependency);
+                            _typesInGeneration.Remove(type);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        private object GenerateGenericDependency(DependencyDetails dependency, Type nestedType)
+        {
+            if (dependency.IsSingleton)
+            {
+                lock (_locker)
+                {
+
+                    if ((dependency.Instance != null) && (dependency.NestedType == nestedType))
+                    {
+                        return dependency.Instance;
+                    }
+                    else if(dependency.NestedType != nestedType)
+                    {
+                        dependency.NestedType = nestedType;
+                    }
+                    dependency.Instance = GenerateDependencyByConstructor(MakeGenericTypeWithNestedType(dependency.ImplType, nestedType));
+                    return dependency.Instance;
+                }
+            }
+            else
+            {
+                return GenerateDependencyByConstructor(MakeGenericTypeWithNestedType(dependency.ImplType, nestedType));
+            }
+        }
+
+        private Type MakeGenericTypeWithNestedType(Type genericType, Type nestedType)
+        {
+            return genericType.MakeGenericType(new Type[] { nestedType});
+        }
+
+
+        private object GenerateDependency(DependencyDetails dependency)
+        {
+            if (dependency.IsSingleton)
+            {
+                lock (_locker)
+                {
+
                     if (dependency.Instance != null)
                     {
                         return dependency.Instance;
@@ -38,34 +115,12 @@ namespace DIContainer
                         return dependency.Instance;
                     }
                 }
-                    return GenerateDependencyByConstructor(dependency.ImplType);
             }
-            return null;
-        }
-
-        private object GenerateGenericDependency(DependencyDetails genDeps, Type nestedType)
-        {
-            var interfaces = nestedType.GetInterfaces();
-            if ((interfaces.Length != 0) &&
-                    (((!nestedType.IsGenericType)) && (_configuration.Dependencies.TryGetValue(interfaces[0], out DependenciesImpls nestedDep))))
-            {
-                Type implType = genDeps.ImplType;
-                return GenerateDependencyByConstructor(implType);
-            }
-            return null;
+            return GenerateDependencyByConstructor(dependency.ImplType);
         }
 
         private object GenerateDependencyByConstructor(Type type)
         {
-            if (type.IsGenericType)
-            {
-                var args = GetArgForGenericType(type);
-                if(args == null)
-                {
-                    return null;
-                }
-                type = type.MakeGenericType(args);
-            }
             ConstructorInfo[] constructorInfos = type.GetConstructors();
             ConstructorInfo constructor = constructorInfos[0];
             ParameterInfo[] parameters = constructor.GetParameters();
@@ -75,22 +130,10 @@ namespace DIContainer
                 foreach (var param in parameters)
                 {
                     object parameter = null;
-                    if (type.IsGenericType)
+                    parameter = CreateInstance(param.ParameterType);
+                    if (parameter == null)
                     {
-                        Type typeInterface = param.ParameterType.GetInterfaces()[0];
-                        parameter = CreateInstance(typeInterface);
-                        if (parameter == null)
-                        {
-                            return null;
-                        }
-                    }
-                    else
-                    {
-                        parameter = CreateInstance(param.ParameterType);
-                        if (parameter == null)
-                        {
-                            return null;
-                        }
+                        return null;
                     }
                     values.Add(parameter);
                 }
@@ -99,26 +142,46 @@ namespace DIContainer
 
         }
 
-        private Type[] GetArgForGenericType(Type genericType)
+
+        private object CreateIEnumerable(Type type)
         {
-            List<Type> types = new List<Type>();
-            var genTypes = genericType.GetGenericArguments();
-            foreach (var type in genTypes)
+            if ((type.GetGenericArguments().Length > 0))
             {
-                var interfaces = type.GetInterfaces();
-                if ((interfaces.Length != 0) &&
-                    (((!type.IsGenericType)) && (_configuration.Dependencies.TryGetValue(interfaces[0], out DependenciesImpls impls))))
+                Type interfaceType = type.GetGenericArguments()[0];
+                if(type.IsGenericTypeDefinition)
                 {
-                    var dependency = impls.ImplTypes[impls.ImplTypes.Count - 1];
-                    types.Add(dependency.ImplType);
+                    Type nestedType = interfaceType.GetGenericArguments()[0];
+
+                    DependenciesImpls impls = null;
+                    DependenciesImpls implsOfNestedType = null;
+                    if ((_configuration.Dependencies.TryGetValue(type, out impls) || (_configuration.Dependencies.TryGetValue(type.GetGenericTypeDefinition(), out impls)))
+                        && _configuration.Dependencies.TryGetValue(nestedType, out implsOfNestedType))
+                    {
+                        var result =  Array.CreateInstance(type, impls.ImplTypes.Count);
+                        var nestedImpl = implsOfNestedType.ImplTypes[implsOfNestedType.ImplTypes.Count - 1];
+                        int index = 0;
+                        foreach(var impl in impls.ImplTypes)
+                        {
+                            result.SetValue(GenerateGenericDependency(impl, nestedType), index);
+                            index++;
+                        }
+                        return result;
+                    }
                 }
-                else 
+                else if (_configuration.Dependencies.TryGetValue(type.GetGenericArguments()[0], out DependenciesImpls impls))
                 {
-                    return null;
+                    var result = Array.CreateInstance(type.GetGenericArguments()[0], impls.ImplTypes.Count);
+                    
+                    int index = 0;
+                    foreach (var impl in impls.ImplTypes)
+                    {
+                        result.SetValue(GenerateDependency(impl), index);
+                        index++;
+                    }
+                    return result;
                 }
             }
-            return types.ToArray();
+            return null;
         }
-
     }
 }

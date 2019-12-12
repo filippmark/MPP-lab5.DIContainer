@@ -11,13 +11,16 @@ namespace DIContainer
 
         public bool IsGeneric { get; }
 
+        public Type NestedType { get; set; }
 
-        public DependencyDetails(bool isSingleton, Type implType, bool isGeneric)
+
+        public DependencyDetails(bool isSingleton, Type implType, bool isGeneric, Type nestedType)
         {
             IsSingleton = isSingleton;
             Instance = null;
             ImplType = implType;
             IsGeneric = isGeneric;
+            NestedType = nestedType;
         }
     }
 }

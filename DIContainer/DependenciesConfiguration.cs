@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace DIContainer
 {
     public class DependenciesConfiguration
     {
         public ConcurrentDictionary<Type, DependenciesImpls> Dependencies { get; }
-        
+
         public DependenciesConfiguration()
         {
             Dependencies = new ConcurrentDictionary<Type, DependenciesImpls>();
@@ -27,26 +26,37 @@ namespace DIContainer
 
         private bool TryToAddToConfig(Type typeInterface, Type typeImpl, bool isSingleton)
         {
-            if ((!typeImpl.IsInterface && !typeImpl.IsAbstract))
-            //    && ((typeInterface.IsInterface && typeInterface.IsAssignableFrom(typeImpl)) || typeInterface.IsAssignableFrom(typeImpl)))
+            Console.WriteLine(CanBeGeneratedByConstructor(typeImpl));
+            if (!typeImpl.IsInterface && !typeImpl.IsAbstract 
+                && (typeInterface.IsClass || typeInterface.IsInterface) && CanBeGeneratedByConstructor(typeImpl)) 
             {
-                if (typeInterface.IsGenericType)
-                    typeInterface = typeInterface.GetGenericTypeDefinition();
+                Type nestedType = null;
 
+                if (typeInterface.IsGenericType)
+                {
+                    if(typeImpl.GenericTypeArguments.Length > 0) 
+                        nestedType = typeImpl.GenericTypeArguments[0];
+                }
+ 
                 if (!Dependencies.ContainsKey(typeInterface))
                 {
-                    var dependencies = new DependenciesImpls(isSingleton, typeImpl);
+                    var dependencies = new DependenciesImpls(isSingleton, typeImpl, nestedType);
                     Dependencies.TryAdd(typeInterface, dependencies);
                     return true;
                 }
                 else
                 {
                     Dependencies.TryGetValue(typeInterface, out DependenciesImpls dependencies);
-                    dependencies.AddTypeToList(isSingleton, typeImpl);
-
+                    dependencies.AddTypeToList(isSingleton, typeImpl, nestedType);
                 }
             }
             return false;
+        }
+
+
+        private bool CanBeGeneratedByConstructor(Type type)
+        {
+            return type.GetConstructors().Length != 0; 
         }
     }
 }

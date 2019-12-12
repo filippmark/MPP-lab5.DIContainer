@@ -9,20 +9,11 @@ namespace UseExample
         static void Main(string[] args)
         {
             var configuration = new DependenciesConfiguration();
-            
-            var t1 = typeof(IServiceGen<IRepository>);
-            var t2 = typeof(IServiceGen<>);
-            
-            configuration.Register(typeof(IServiceGen<>), typeof(ServiceGenImpl<>), false);
-            configuration.Register<IRepository, RepositoryImpl>(false);
 
+            configuration.Register<EnumInterface, ClassWithEnum>(false);
 
             var provider = new DependencyProvider(configuration);
-            var obj = provider.Resolve<IServiceGen<IRepository>>();
-
-
-
-            Console.WriteLine(obj == null);
+            ClassWithEnum obj = (ClassWithEnum)provider.Resolve<EnumInterface>();
         }
     }
 }
